@@ -283,7 +283,7 @@ export function cached<F: Function> (fn: F): F {
 }
 ```
 
-这是一个闭包。
+发现一个闭包。
 
 `Object.create(null)` 如何理解？MDN 的解释：
 
@@ -354,13 +354,13 @@ if (process.env.NODE_ENV !== 'production') {
 export const inBrowser = typeof window !== 'undefined'
 ```
 
-接下来才是重点。
+接下来是重点。
 
 `perf` 是性能 performance 的缩写。[`window.performance`](https://developer.mozilla.org/zh-CN/docs/Web/API/Performance?qs=perfor) 是 web api，记录当前页面性能的相关信息接口。如果 `isBrowser` 为 `true`，则 `perf` 就赋值为这个浏览器全局对象的性能属性。
 
 > 备注：Performance 是专用于性能测试的 web api！用于优化网页速度时测试指标。
 >
-> 参考：[Performance 有什么用？怎么用？](https://www.digitalocean.com/community/tutorials/js-js-performance-api)‼️
+> ‼️参考：[Performance 有什么用？怎么用？](https://www.digitalocean.com/community/tutorials/js-js-performance-api)
 >
 > > There are a lot of tools which can help you understand how your application works locally. The Performance API is here to help us have a granular understanding of our web pages in the wild. You can get real data and see how your site works in different browsers, networks, parts of the world and more!
 
@@ -376,7 +376,7 @@ perf.clearMarks(endTag) // same as above one
 perf.clearMeasures(name)
 ```
 
-mark 理解为某个时间点的时间戳，measure 理解为两个时间戳的时间间隔。
+mark 理解为某个时间点的时间戳，measure 理解为两个时间点的时间间隔。
 
 比如，「开始编译」和「结束编译」为两个时间点，它俩之间的时间间隔被命名为「编译」。
 
