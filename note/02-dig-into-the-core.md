@@ -6,12 +6,11 @@ In this article, we will:
 
 - Find the real Vue implementation
 
-
 ## Find the Real Vue Code
 
 We have found the entry at [previous article](https://github.com/numbbbbb/read-vue-source-code/blob/master/01-find-the-entry.md) with the clue `import Vue from './runtime/index'`, let's go along that.
 
-Open `./runtime/index`.
+==Open `./runtime/index`.==
 
 ```javascript
 /* @flow */
@@ -107,7 +106,7 @@ Two important points here:
 
 After checking the Vue directory, we can find there is another platform `weex`. It's a framework similar to ReactNative and it's maintained by Alibaba.
 
-Go on with our new clue `import Vue from 'core/index'`, again it `import Vue from './instance/index'`, open `./instance/index`.
+Go on with our new clue `import Vue from 'core/index'`, 【`core` 文件夹与 `platforms` 同级，是 `web` 和 `weex` 的上一级】again it `import Vue from './instance/index'`, open `./instance/index`.
 
 ```javascript
 import { initMixin } from './init'
@@ -136,6 +135,19 @@ export default Vue
 ```
 
 `function Vue (options) {`! We made it! This is the core Vue implementation.
+
+> 这里引起我注意的是 `!(this instanceof Vue)`，这句话用来干什么呢？
+> 
+> 与 new 关键字的作用有关：
+> ```js
+> function foo() {
+		console.log(this);
+		console.log(this instanceof foo);
+	}
+	foo(); // undefined false
+	let f = new foo(); // foo{} true
+	```
+	这句话用于判断 `Vue()` 调用时是否使用了 `new` 关键字。
 
 Below are five mixins, their names imply what they are.
 
@@ -174,4 +186,5 @@ Find a friend and try to explain Vue's layer pattern to him/her.
 
 Nothing is perfect. Can you tell some disadvantages of this pattern?
 
+ #fixme 
 
