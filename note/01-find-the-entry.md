@@ -8,6 +8,8 @@ In this article, we will:
 - Open your editor
 - Find the entry
 
+> 入口文件是：`src/platforms/web/entry-runtime-with-compiler.js`
+
 ## Get the Code
 
 You can read code using GitHub, but it's slow and hard to see the directory structure. So let's download the code first.
@@ -37,6 +39,8 @@ Open your editor, double click the zip file you downloaded and drag the folder t
 Now we meet our first question: where should we start?
 
 It's a common question for big open source projects. Vue is a npm package, so we can ==open `package.json` first.==
+
+> [[package.json 属性总结]]
 
 ```json
 {
@@ -76,6 +80,8 @@ Go on.
 ```
 rollup -w -c build/config.js --environment TARGET:web-full-dev
 ```
+
+> #fixme 学习 linux 常用命令。`TARGET` 是什么
 
 Now we have `build/config.js` and `TARGET:web-full-dev`. Open `build/config.js` and search `web-full-dev`:
 
@@ -425,7 +431,7 @@ export function query (el: string | Element): Element {
 
 查找选择器（el）对应的 DOM 元素。
 
-疑问❓：el 不存在，抛出 warning 的同时返回一个新创建的空的 `div` 元素，意义在？
+疑问 #fixme ：el 不存在，抛出 warning 的同时返回一个新创建的空的 `div` 元素，意义在？
 
 ### shouldDecodeNewlines
 
