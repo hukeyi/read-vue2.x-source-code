@@ -136,19 +136,6 @@ export default Vue
 
 `function Vue (options) {`! We made it! This is the core Vue implementation.
 
-> 这里引起我注意的是 `!(this instanceof Vue)`，这句话用来干什么呢？
-> 
-> 与 new 关键字的作用有关：
-> ```js
-> function foo() {
-		console.log(this);
-		console.log(this instanceof foo);
-	}
-	foo(); // undefined false
-	let f = new foo(); // foo{} true
-	```
-	这句话用于判断 `Vue()` 调用时是否使用了 `new` 关键字。
-
 Below are five mixins, their names imply what they are.
 
 But why the core Vue function is such short? Only a `this._init`?
