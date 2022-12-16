@@ -323,6 +323,8 @@ export function cached<F: Function> (fn: F): F {
 
 ### mark & measure
 
+> 先说结论：这两个函数的作用就是记录运行日志和性能测试日志。
+
 然后，转去看 `core/util/perf`：
 
 ```js
@@ -402,8 +404,6 @@ if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
         measure(`${this._name} compile`, 'compile', 'compile end') // 标记编译开始与结束之间的时间间隔
       }
 ```
-
-总而言之，这两个函数的作用就是：记录运行日志和性能测试日志。
 
 ### query
 
