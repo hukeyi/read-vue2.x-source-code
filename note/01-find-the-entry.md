@@ -40,7 +40,7 @@ Now we meet our first question: where should we start?
 
 It's a common question for big open source projects. Vue is a npm package, so we can ==open `package.json` first.==
 
-> [[package.json 属性总结]]
+> [[package.json-属性总结]]
 
 ```json
 {
