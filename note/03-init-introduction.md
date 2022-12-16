@@ -6,10 +6,60 @@ In this article, we will learn:
 
 - What those mixins do
 - Understand the init process
+- what  happened when you do `const app = new Vue(options);`
+
+#### `options` 到底包含哪些属性？
+
+见 [Vue 2.x Docs](https://v2.vuejs.org/v2/api/#Options-Data)。
+
+#### `new Vue(options)` 返回的 `Vue` 实例是什么？含义是？ 
+
+返回的实例就是一个「组件 component」，它对应页面上某一个组件。
+
+CSS 的视角中，HTML 页面上由一个个「盒子」组成；而 Vue.js 视角中，HTML 页面由一个个「组件」构成。每一个盒子都有内外边距+边界+内容区几大区域；每一个组件都由 `Vue` 类定义，并通过 `new Vue(options)` 实例化出组件。
+
+比如，有一个组件定义在文件 `myComponent.vue` 中，文件大致长这样：
+
+```vue
+<template>
+	<!-- 略 -->
+</template>
+<script>
+	export default {
+		props: { /* 略 */},
+		data(){
+			return { /* 略 */ }
+		}
+	}
+</script>
+<style>
+	/* 略 */
+<style>
+```
+
+假设同文件夹的 `myPage.vue` 要引入这个组件，则 `myPage.vue` 的 `<script>` 标签中会写：
+
+```vue
+<template>
+	<!-- 在模版中引用时，直接把 myComponent 当一个 html 标签一样使用 -->
+	<myComponent></myComponent>
+</template>
+<script>
+	import myComponent from './myComponent.vue';
+
+	export default { /* 略，这里是 myPage 的 options */ }
+<script>
+```
+
+`options` 就是组件 `.vue` 文件中 `export default { /* 我就是 options */ }` 导出的 `Object` 对象，是一些描述组件特性（`data, props` 等，以及 `mount()` 等生命周期钩子）的属性及其值。
+
+`options` 就类似于「类的数据成员和成员函数」，更具体的说，这个「类」就是 `Vue` 类，它是页面的组件模版类。用 Vue 框架写的页面的所有组件元素全部以此为模版构建出来。刚开始 `new Vue(options)` 输入的 `options` 即初始化类时输入的初始参数。
 
 ## What those mixins do
 
 We are inside `src/core/instance/index.js` now.
+
+> 补：这个文件是 `Vue` 声明所在的文件。
 
 ```javascript
 import { initMixin } from './init'
@@ -19,15 +69,22 @@ import { eventsMixin } from './events'
 import { lifecycleMixin } from './lifecycle'
 import { warn } from '../util/index'
 
+// Vue 的声明
 function Vue (options) {
+	// 检测 Vue 是否通过 new 关键字调用
+	// 不是则抛出警告
   if (process.env.NODE_ENV !== 'production' &&
     !(this instanceof Vue)
   ) {
     warn('Vue is a constructor and should be called with the `new` keyword')
   }
+  // 初始化
+  // options 为 const app = new Vue({...}) 时输入的参数
+  // this._init 为 initMixin(Vue) 时创建的 Vue 原型上的成员函数
   this._init(options)
 }
 
+// 这些函数在这里被调用，并传入 Vue 作为参数，问题是，这个文件什么时候被执行？被谁执行？A: 在 import Vue 时就执行，即在 new Vue() 之前就已经执行
 initMixin(Vue)
 stateMixin(Vue)
 eventsMixin(Vue)
@@ -37,16 +94,146 @@ renderMixin(Vue)
 export default Vue
 ```
 
+#### `!(this instanceof Vue)` 的含义是什么？
+ 
+我们可以从 if 的代码块中打印的警告获得提示：Vue 是一个构造函数，应当通过 new 关键字调用。 
+这个警告告诉我们，`Vue()` 应当且只应当用 `new Vue()` 的方式调用。
+问题来了：为什么 `!(this instanceof Vue)`  可以用于判断其调用方式呢？
+ 
+从 new 关键字的起作用的过程说起：
+1.  创建一个空的简单 JavaScript 对象（即 **`{}`**）；
+2.  为步骤 1 新创建的对象添加属性 **`__proto__`**，将该属性链接至构造函数的原型对象；
+3.  将步骤 1 新创建的对象作为 **`this`** 的上下文；
+4.  如果该函数没有返回对象，则返回 **`this`**。
+ 
+ ```js
+ funtion simulateNew(Vue){
+ 	let newObj = {};
+ 	// 下句代码把 newObj 的原型设置为 Vue.prototype，即 newObj instanceof Vue == true
+ 	newObj.__proto__ = Vue.prototype;
+ 	// 下句代码将会把 Vue 函数内部的 this 绑定为刚刚创建的 newObj
+ 	// 因此，用 new 调用 Vue 构造函数时，Vue 内部的 this 将会等于 newObj，即 this instanceof Vue == true
+ 	return Vue.call(newObj, ...arguments);
+ }
+ ```
+
+#### 另一个疑惑，为什么在 Vue 的声明之后调用这几个函数？这些函数什么时候会执行？
+ 
+简答：在 `import Vue from 'core/index'` 时就会执行。注意，不是在 `new Vue()` 时执行，而是在 `import` 语句执行时，被引入的文件 `core/index` 就会整体被执行。
+ 
+更详细的答案在：[[Node-import-引入语句做了什么]]
+
 First, we will walk through those five mixins, find out what they do. Then we go into the `_init` function and see what happens when you execute `var app = new Vue({...})`.
 
 ### initMixin
 
+> `initMixin` 给 `Vue` 的原型（`Vue.prototype`，相当于加在类上，即每一个实例上）加了一个成员函数 `_init()`
+
 Open `./init.js`, scroll to the bottom and read definitions.
+
+> 忘了 `mark()` 是干嘛的就看：[[01-find-the-entry#mark & measure]]
+
+> 注意：以下的 `vm.$xx` 都是 `Vue` **实例**的属性或函数，要与加在 `Vue.prototype` 上的属性或函数（e.g. `Vue.prototype._init`）区分开。`Vue` 实例的属性或函数不与其他 `Vue` 实例共享。
+
+```js
+let uid = 0;
+
+export function initMixin(Vue: Class<Component>) {
+	// initMixin 给 Vue 的原型加了一个成员函数 _init()
+	Vue.prototype._init = function (options?: Object) {
+		const vm: Component = this;
+		// a uid
+		vm._uid = uid++;
+
+		let startTag, endTag;
+		/* istanbul ignore if */
+		if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
+			startTag = `vue-perf-init:${vm._uid}`;
+			endTag = `vue-perf-end:${vm._uid}`;
+			mark(startTag); // 记录 init 开始时间戳
+		}
+
+		// a flag to avoid this being observed
+		vm._isVue = true; // ? 【#fixme 这个属性干啥的，啥叫避免被 observed】
+		// merge options 合并 options
+		// 噢！把 this._init(options) 输入的新的 options 与原本 Vue 已经有的旧的 options 合并
+		if (options && options._isComponent) {
+		// 优化内部组件的实例化过程？
+		// 因为动态 options 合并很慢，所以使用 initInternalComponent 用于优化合并过程？ 
+		// 【#fixme 什么叫动态 options 合并】
+			// optimize internal component instantiation
+			// since dynamic options merging is pretty slow, and none of the
+			// internal component options needs special treatment.
+			initInternalComponent(vm, options);
+		} else {
+			vm.$options = mergeOptions(
+				resolveConstructorOptions(vm.constructor),
+				options || {},
+				vm
+			);
+		}
+		/* istanbul ignore else */
+		if (process.env.NODE_ENV !== 'production') {
+			initProxy(vm);
+		} else {
+			vm._renderProxy = vm;
+		}
+		// expose real self
+		vm._self = vm;
+		initLifecycle(vm);
+		initEvents(vm);
+		initRender(vm);
+		callHook(vm, 'beforeCreate');
+		initInjections(vm); // resolve injections before data/props
+		initState(vm);
+		initProvide(vm); // resolve provide after data/props
+		callHook(vm, 'created');
+
+		/* istanbul ignore if */
+		if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
+			vm._name = formatComponentName(vm, false);
+			mark(endTag);
+			measure(`${vm._name} init`, startTag, endTag);
+		}
+
+		if (vm.$options.el) {
+			vm.$mount(vm.$options.el);
+		}
+	};
+}
+```
 
 This file defines:
 
 - function `initMixin()`, it defines `Vue.prototype._init`, we will come back at next section
 - function `initInternalComponent()`, its comments implies that this function can speed up internal component instantiation because dynamic options merging is pretty slow
+
+```js
+function initInternalComponent(
+	vm: Component,
+	options: InternalComponentOptions
+) {
+	// 首先是用 Object.create 克隆了 vm.constructor（就是 Vue()）
+	// 【 #fixme vm.constructor.options 是啥？vm.constructor 不是构造函数吗？它哪里来的 options？】
+	// opts 是 vm.$options 的指针，也就是说，下面更改 opts 就是更改 vm.$options
+	const opts = (vm.$options = Object.create(vm.constructor.options));
+	// doing this because it's faster than dynamic enumeration.
+	// 【 #fixme dynamic enumeration 难道是说 for (let prop in opts)？是说直接一个一个写比用 for 循环枚举更快？】
+	opts.parent = options.parent;
+	opts.propsData = options.propsData;
+	opts._parentVnode = options._parentVnode;
+	opts._parentListeners = options._parentListeners;
+	opts._renderChildren = options._renderChildren;
+	opts._componentTag = options._componentTag;
+	opts._parentElm = options._parentElm;
+	opts._refElm = options._refElm;
+	if (options.render) {
+		opts.render = options.render;
+		opts.staticRenderFns = options.staticRenderFns;
+	}
+}
+```
+
 - function `resolveConstructorOptions()`, it collects options
 - function `resolveModifiedOptions()`, this is related to [a bug](https://github.com/vuejs/vue/issues/4976). In short, it can let you modify or attach options during hot-reload
 - function `dedupe()`, used by `resolveModifiedOptions` to ensure lifecycle hooks won't be duplicated
@@ -113,7 +300,7 @@ This function defines:
 
 Sounds familiar? Yes, here we get `$data`, `$props`, `$set`, `$delete` and `$watch`. Read this file carefully, you can learn some coding skills and use them in your own projects.
 
-Have you noticed the `Watcher`? Seems like an important class! You are right, in later articles we will explain `Observer`, `Dep` and `Watcher`. They cooperate to implement data and view synchronization.
+Have you noticed the `Watcher`? Seems like an important class! You are right, in later articles we will explain `Observer`, `Dep` and `Watcher`. They cooperate to implement data and view synchronization.【数据-视图双向绑定】
 
 ### eventsMixin
 
@@ -151,7 +338,6 @@ Open `./render.js`, it defines `Vue.prototype._render()` and some helpers. They 
 Okay, so now we understand what those mixins do, they just set some functions to `Vue.prototype`.
 
 ![](http://i.imgur.com/MhqgVXP.jpg)
-
 
 The important thing here is how to divide and organize a bunch of functions. How many parts would you make if you are the author? Which part should one function go? Think from the point of author's view, it's very interesting and helpful.
 
