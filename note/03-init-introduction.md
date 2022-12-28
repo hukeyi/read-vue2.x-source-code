@@ -53,7 +53,7 @@ CSS 的视角中，HTML 页面上由一个个「盒子」组成；而 Vue.js 视
 
 `options` 就是组件 `.vue` 文件中 `export default { /* 我就是 options */ }` 导出的 `Object` 对象，是一些描述组件特性（`data, props` 等，以及 `mount()` 等生命周期钩子）的属性及其值。
 
-`options` 就类似于「类的数据成员和成员函数」，更具体的说，这个「类」就是 `Vue` 类，它是页面的组件模版类。用 Vue 框架写的页面的所有组件元素全部以此为模版构建出来。刚开始 `new Vue(options)` 输入的 `options` 即初始化类时输入的初始参数。
+`options` 类似于「类的数据成员和成员函数」，更具体的说，这个「类」就是 `Vue` 类，它是页面的组件模版类。用 Vue 框架写的页面的所有组件元素全部以此为模版构建出来。刚开始 `new Vue(options)` 输入的 `options` 即初始化类时输入的初始参数。
 
 ## What those mixins do
 
@@ -84,7 +84,8 @@ function Vue (options) {
   this._init(options)
 }
 
-// 这些函数在这里被调用，并传入 Vue 作为参数，问题是，这个文件什么时候被执行？被谁执行？A: 在 import Vue 时就执行，即在 new Vue() 之前就已经执行
+// 这些函数在这里被调用，并传入 Vue 作为参数
+// Q: 这个文件什么时候被执行？被谁执行？A: 在 import Vue 时就执行，即在 new Vue() 之前就已经执行
 initMixin(Vue)
 stateMixin(Vue)
 eventsMixin(Vue)
@@ -100,14 +101,14 @@ export default Vue
 这个警告告诉我们，`Vue()` 应当且只应当用 `new Vue()` 的方式调用。
 问题来了：为什么 `!(this instanceof Vue)`  可以用于判断其调用方式呢？
  
-从 new 关键字的起作用的过程说起：
+从 new 关键字的作用过程说起：
 1.  创建一个空的简单 JavaScript 对象（即 **`{}`**）；
 2.  为步骤 1 新创建的对象添加属性 **`__proto__`**，将该属性链接至构造函数的原型对象；
 3.  将步骤 1 新创建的对象作为 **`this`** 的上下文；
 4.  如果该函数没有返回对象，则返回 **`this`**。
  
  ```js
- funtion simulateNew(Vue){
+ function simulateNew(Vue){
  	let newObj = {};
  	// 下句代码把 newObj 的原型设置为 Vue.prototype，即 newObj instanceof Vue == true
  	newObj.__proto__ = Vue.prototype;
@@ -125,15 +126,16 @@ export default Vue
 
 First, we will walk through those five mixins, find out what they do. Then we go into the `_init` function and see what happens when you execute `var app = new Vue({...})`.
 
+> 注意：以下的 `vm.$xx` 都是 `Vue` **实例**的属性或函数，要与加在 `Vue.prototype` 上的属性或函数（e.g. `Vue.prototype._init`）区分开。`Vue` 实例的属性或函数不与其他 `Vue` 实例共享。
+
 ### initMixin
 
-> `initMixin` 给 `Vue` 的原型（`Vue.prototype`，相当于加在类上，即每一个实例上）加了一个成员函数 `_init()`
+> `initMixin` 给 `Vue` 的原型（`Vue.prototype`，相当于加在类上，即每一个实例上）加了一个成员函数 `_init()`。
+> `_init()` 会初始化 vue 实例的 `$options` 等等。
 
 Open `./init.js`, scroll to the bottom and read definitions.
 
 > 忘了 `mark()` 是干嘛的就看：[[01-find-the-entry#mark & measure]]
-
-> 注意：以下的 `vm.$xx` 都是 `Vue` **实例**的属性或函数，要与加在 `Vue.prototype` 上的属性或函数（e.g. `Vue.prototype._init`）区分开。`Vue` 实例的属性或函数不与其他 `Vue` 实例共享。
 
 ```js
 let uid = 0;
@@ -154,13 +156,13 @@ export function initMixin(Vue: Class<Component>) {
 		}
 
 		// a flag to avoid this being observed
-		vm._isVue = true; // ? 【#fixme 这个属性干啥的，啥叫避免被 observed】
+		vm._isVue = true; // ? 【 #fixme 这个属性干啥的，啥叫避免被 observed】
 		// merge options 合并 options
 		// 噢！把 this._init(options) 输入的新的 options 与原本 Vue 已经有的旧的 options 合并
 		if (options && options._isComponent) {
 		// 优化内部组件的实例化过程？
 		// 因为动态 options 合并很慢，所以使用 initInternalComponent 用于优化合并过程？ 
-		// 【#fixme 什么叫动态 options 合并】
+		// 【 #fixme 什么叫动态 options 合并】
 			// optimize internal component instantiation
 			// since dynamic options merging is pretty slow, and none of the
 			// internal component options needs special treatment.
@@ -240,6 +242,38 @@ function initInternalComponent(
 
 ### stateMixin
 
+下两张图截自 vue 的官方 api 文档目录，即本小节 `stateMixin` 负责初始化的实例属性和方法：
+
+![[vue-src-03-02.png | 150]]
+![[vue-src-03-00.png| 200]]
+
+> `stateMixin` 给 Vue 的原型加了很多私有变量的拦截器（就是加了 setter 和 getter，防止用户直接接触到私有变量，套一层保护壳保护私有变量 `this._data` 和 `this._props` ）和触发双向绑定的工具函数（官方api 中的 [Global API](https://v2.vuejs.org/v2/api/?#Global-API)），主要是 `$data, $props, $watch, $set, $delete`。
+> 
+> 前三者都是写 vue 模版代码时最常见的那几个：
+> 
+> ```js
+> props: ['initialCounter'],
+> data: function () {
+> 	return {
+> 		counter: this.initialCounter
+> 	}
+> },
+> watch:{
+> 	// whenever counter changes, this function will run
+> 	counter: function(newVal, oldVal){}
+> }
+>```
+>
+>`$watch`、`$set` 和 `$delete` 是在写代码时手动触发视图改变利用的函数工具。比如点击某个按钮后删除对象的某个属性，这个变化需要同步体现在页面上，我们就可以在按钮的 handler 函数中用 `vm.$delete` 删除目标属性，确保触发页面变化。如果直接用 `del obj[prop]`，就无法让页面捕捉到相应对象的属性变化。
+>
+>`$set` 同理，如果直接用 `obj[prop]=newVal`，页面无法捕捉到数据变化，必须使用工具函数 `vm.$set() / Vue.set()`，用于添加新属性并触发数据视图双向绑定。给 vue 的对象动态添加新属性时，务必使用 `vm.$set`，否则无法触发视图改变。
+>
+>与双向绑定有关的函数不在当前 `state.js` ，而在 `src/core/observer/index.js` 中，`state.js` 通过 `import` 引入。
+> 
+> [官方 api: Vue-set](https://v2.vuejs.org/v2/api/?#Vue-set)
+> Adds a property to a reactive object, ensuring the new property is also reactive, so triggers view updates. This must be used to add new properties to reactive objects, as Vue cannot detect normal property additions (e.g. this.myObject.newProperty = 'hi').
+> The target object cannot be a Vue instance, or the root data object of a Vue instance.
+
 Open `./state,js`, this is a long file, search `statemixin`.
 
 ```javascript
@@ -247,27 +281,39 @@ export function stateMixin (Vue: Class<Component>) {
   // flow somehow has problems with directly declared definition object
   // when using Object.defineProperty, so we have to procedurally build up
   // the object here.
+  /**
+  * 设置 $data 和 $props
+  */
   const dataDef = {}
   dataDef.get = function () { return this._data }
   const propsDef = {}
   propsDef.get = function () { return this._props }
   if (process.env.NODE_ENV !== 'production') {
+	// 用户设置 $data 时，在非生产环境抛出警告并拒绝设置操作
     dataDef.set = function (newData: Object) {
+    // #fixme 什么叫 nested data properties
       warn(
         'Avoid replacing instance root $data. ' +
         'Use nested data properties instead.',
         this
       )
     }
+    // 拒绝用户设置 $props
     propsDef.set = function () {
       warn(`$props is readonly.`, this)
     }
   }
+  /**
+  * vue 的源码设置 defineProperty 的方式是，先把输入参数设置好，然后再统一 define，而不是直接 Object.defineProperty(obj, 'xx', {
+  * get: function(){}, set: function(){}
+  * })
+  * 看最前面的注释，似乎是因为某种奇妙的 problem，但没点明
+  */
   Object.defineProperty(Vue.prototype, '$data', dataDef)
   Object.defineProperty(Vue.prototype, '$props', propsDef)
 
-  Vue.prototype.$set = set
-  Vue.prototype.$delete = del
+  Vue.prototype.$set = set // 其他文件 import 来的
+  Vue.prototype.$delete = del // 其他文件 import 来的
 
   Vue.prototype.$watch = function (
     expOrFn: string | Function,
@@ -293,6 +339,10 @@ This function defines:
 - `dataDef` and it's getter
 - `propsDef` and it's getter
 - setters for `dataDef` and `propsDef` if not built for production, which just log two warnings
+
+> `$data` 和 `$props` 的 getter 只是直接 `return` 了它们各自的值；
+> setter 主要就是在非生产环境抛出不能直接更改 vue 根实例属性的警告（避免用户 `vm.$data = {...}` ⬅️这样修改根实例的属性）。
+
 - `dataDef` to `Vue.prototype` as `$data`
 - `propsDef` to `Vue.prototype` as `$props`
 - `Vue.prototype.$set` and `Vue.prototype.$delete`
@@ -304,20 +354,120 @@ Have you noticed the `Watcher`? Seems like an important class! You are right, in
 
 ### eventsMixin
 
+> 定义了四个与事件和事件监听器有关的工具函数，`$on, $emit, $once, $off`。
+
+下图截取自 vue 官方 api 文档目录：
+
+![[vue-src-03-01.png | 200]]
+
 Open `./events.js` and search `eventsMixin`, it's too long to put the screenshot here, so read it by yourself.
 
 This function defines:
 
 - `Vue.prototype.$on`
-- `Vue.prototype.$once`
-- `Vue.prototype.$off`
 - `Vue.prototype.$emit`
 
+> [设置/触发用户自定义事件](https://v2.vuejs.org/v2/api/?#vm-on)，通常用于父子组件的信息传递。
+> 
+> ```js
+> // 设置自定义事件 test
+> vm.$on('test', msg => console.log(msg))
+> // 在另一个地方触发自定义事件 test
+> vm.$emit('test', 'hello') // hello
+> ```
+
+- `Vue.prototype.$once`
+
+> [一次性监听器](https://v2.vuejs.org/v2/api/?#vm-once)：Listen for a custom event, but only once. The listener will be removed once it triggers for the first time.
+
+```js
+ Vue.prototype.$once = function (event: string, fn: Function): Component {
+    const vm: Component = this
+    function on () {
+      vm.$off(event, on) // 先删掉 vm._events[event] 的 handler on
+      fn.apply(vm, arguments) // 执行事件监听器 handler vm.fn(arguments)
+      // 自由变量 fn 的查找从函数定义的地方开始
+    }
+    on.fn = fn // 这句代码有啥用？见 $off 的源码
+    // 上面这句代码保证了，既可以因为事件触发，执行函数 on() 通过 vm.$off(event, on) 来清除监听器；也可以在事件触发前，手动通过 vm.$off(event, fn) 来清除监听器
+    // 如果不加入这个代码，就没有一种方法能够让开发者手动清除 event 的监听器 fn 了，因为实际上 vm._events[event] 注册的监听器 handler 是函数 on()，而 on 被封装在 $once 中，开发者无法获取
+    // 所以需要提供额外的接口（cb.fn==fn）来清除 event 的监听器 fn
+    vm.$on(event, on) // 注意，这里加入事件 event 的 handler 数组的函数是 on 而不是 fn
+    return vm
+  }
+```
+
+- `Vue.prototype.$off`
+
+> [关闭自定义事件监听器](https://v2.vuejs.org/v2/api/?#vm-off)：
+> -   If no arguments are provided, remove all event listeners;
+> -   If only the event is provided, remove all listeners for that event; 
+> -   If both event and callback are given, remove the listener for that specific callback only.
+
+off 有三种方式清除监听器：1）清除所有事件的所有监听器；2）清除某个事件的所有监听器；3）清除某个事件的某个监听器。
+
+以上 `on.fn = fn` 就是在第三种方式上起作用：
+
+```js
+const cbs = vm._events[event] // 获得事件 event 的监听器们
+// specific handler
+let cb
+let i = cbs.length
+while (i--) { // 倒序遍历监听器
+  cb = cbs[i]
+  // 以下两种判断方式对应两种清除 handler 的方式
+  // 前者是普通的清除方式；后者专为触发前（调用事件 event 前）清除用 $once 注册的一次性事件监听器
+  if (cb === fn || cb.fn === fn) {
+	cbs.splice(i, 1) // 清除
+	break
+  }
+}
+```
+
+> vue 清空某一个对象的方式不是直接赋值 `null`，而是：
+> 
+> `vm._events = Object.create(null);`
+> 
+> 又出现了，以 `null` 为原型的对象：[null-prototype object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object#null-prototype_objects)。为什么使用这个？
+> 
+> > In practice, objects with `null` prototype are usually used as a cheap substitute for [maps](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map).
+> 
+> 也许就是为了防止 `Object.prototype` 上众多的原型成员函数们（比如 `toString(), hasOwnProperty()` 等）污染事件对象。
+
 You must have used them for many times, just read the code and learn how to implement event manipulation elegantly.
+
+> 这个代码学到了：
+> 
+> `vm._events` 是否存在属性叫 `event`，不存在则赋值为空数组并且 push：
+> `(vm._events[event] || (vm._events[event] = [])).push(fn);`
+> 
+> 顺带一提，原来同一个事件可以绑定多个监听器函数。看 `$emit` 的代码实现也会发现，事件绑定的每一个函数都会执行一次。
+
+> 又学到一个写 for 循环的小 trick：
+> 
+> `for (let i = 0, l = nums.length; i < l; i++)`
+> 
+> 直接在括号里获得数组的长度 `l`。
+
+> 生命周期的 `hook:event` 似乎是特地为生命周期钩子函数留的口：
+> 
+> ```js
+> const hookRE = /^hook:/
+> // optimize hook:event cost by using a boolean flag marked at registration
+> // instead of a hash lookup
+> if (hookRE.test(event)) {
+> 	vm._hasHookEvent = true
+> }
+> ```
+
+> 再顺便一提，自定义事件的命名建议使用短横杠的 `event-name` 而不建议驼峰命名 `eventName`。因为 HTML 不区分大小写。`$emit` 会自动把事件名称转换为小写后再查找。
 
 ### lifecycleMixin
 
 Open `lifecycle.js`, scroll down to find `lifecycleMixin`.
+
+下图依然截取自官方 api 文档目录：
+![[vue-src-03-03.png | 200]]
 
 This function defines:
 
@@ -331,13 +481,13 @@ Keep going, we get several functions about the component. They are used in DOM u
 
 ### renderMixin
 
-Open `./render.js`, it defines `Vue.prototype._render()` and some helpers. They will also appear in later articles, just keep in mind that we meet `_render` here.
+Open `./render.js`, it defines `Vue.prototype._render()` and some helpers【比如 `Vue.prototype.$nextTick`. They will also appear in later articles, just keep in mind that we meet `_render` here.
 
 ---
 
 Okay, so now we understand what those mixins do, they just set some functions to `Vue.prototype`.
 
-![](http://i.imgur.com/MhqgVXP.jpg)
+![这儿有个图片挂了](http://i.imgur.com/MhqgVXP.jpg)
 
 The important thing here is how to divide and organize a bunch of functions. How many parts would you make if you are the author? Which part should one function go? Think from the point of author's view, it's very interesting and helpful.
 
