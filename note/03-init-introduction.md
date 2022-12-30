@@ -59,7 +59,7 @@ CSS 的视角中，HTML 页面上由一个个「盒子」组成；而 Vue.js 视
 
 We are inside `src/core/instance/index.js` now.
 
-> 补：这个文件是 `Vue` 声明所在的文件。
+补：这个文件是 `Vue` 声明所在的文件。
 
 ```javascript
 import { initMixin } from './init'
@@ -130,8 +130,8 @@ First, we will walk through those five mixins, find out what they do. Then we go
 
 ### initMixin
 
-> `initMixin` 给 `Vue` 的原型（`Vue.prototype`，相当于加在类上，即每一个实例上）加了一个成员函数 `_init()`。
-> `_init()` 会初始化 vue 实例的 `$options` 等等。
+`initMixin` 给 `Vue` 的原型（`Vue.prototype`，相当于加在类上，即每一个实例上）加了一个成员函数 `_init()`。
+`_init()` 会初始化 vue 实例的 `$options` 等等。
 
 Open `./init.js`, scroll to the bottom and read definitions.
 
@@ -247,32 +247,33 @@ function initInternalComponent(
 ![[vue-src-03-02.png | 150]]
 ![[vue-src-03-00.png| 200]]
 
-> `stateMixin` 给 Vue 的原型加了很多私有变量的拦截器（就是加了 setter 和 getter，防止用户直接接触到私有变量，套一层保护壳保护私有变量 `this._data` 和 `this._props` ）和触发双向绑定的工具函数（官方api 中的 [Global API](https://v2.vuejs.org/v2/api/?#Global-API)），主要是 `$data, $props, $watch, $set, $delete`。
-> 
-> 前三者都是写 vue 模版代码时最常见的那几个：
-> 
-> ```js
-> props: ['initialCounter'],
-> data: function () {
-> 	return {
-> 		counter: this.initialCounter
-> 	}
-> },
-> watch:{
-> 	// whenever counter changes, this function will run
-> 	counter: function(newVal, oldVal){}
-> }
->```
->
->`$watch`、`$set` 和 `$delete` 是在写代码时手动触发视图改变利用的函数工具。比如点击某个按钮后删除对象的某个属性，这个变化需要同步体现在页面上，我们就可以在按钮的 handler 函数中用 `vm.$delete` 删除目标属性，确保触发页面变化。如果直接用 `del obj[prop]`，就无法让页面捕捉到相应对象的属性变化。
->
->`$set` 同理，如果直接用 `obj[prop]=newVal`，页面无法捕捉到数据变化，必须使用工具函数 `vm.$set() / Vue.set()`，用于添加新属性并触发数据视图双向绑定。给 vue 的对象动态添加新属性时，务必使用 `vm.$set`，否则无法触发视图改变。
->
->与双向绑定有关的函数不在当前 `state.js` ，而在 `src/core/observer/index.js` 中，`state.js` 通过 `import` 引入。
-> 
-> [官方 api: Vue-set](https://v2.vuejs.org/v2/api/?#Vue-set)
-> Adds a property to a reactive object, ensuring the new property is also reactive, so triggers view updates. This must be used to add new properties to reactive objects, as Vue cannot detect normal property additions (e.g. this.myObject.newProperty = 'hi').
-> The target object cannot be a Vue instance, or the root data object of a Vue instance.
+`stateMixin` 给 Vue 的原型加了很多私有变量的拦截器（就是加了 setter 和 getter，防止用户直接接触到私有变量，套一层保护壳保护私有变量 `this._data` 和 `this._props` ）和触发双向绑定的工具函数（官方api 中的 [Global API](https://v2.vuejs.org/v2/api/?#Global-API)），主要是 `$data, $props, $watch, $set, $delete`。
+
+前三者都是写 vue 模版代码时最常见的那几个：
+
+```js
+props: ['initialCounter'],
+data: function () {
+	return {
+		counter: this.initialCounter
+	}
+},
+watch:{
+	// whenever counter changes, this function will run
+	counter: function(newVal, oldVal){}
+}
+```
+
+`$watch`、`$set` 和 `$delete` 是在写代码时手动触发视图改变利用的函数工具。比如点击某个按钮后删除对象的某个属性，这个变化需要同步体现在页面上，我们就可以在按钮的 handler 函数中用 `vm.$delete` 删除目标属性，确保触发页面变化。如果直接用 `del obj[prop]`，就无法让页面捕捉到相应对象的属性变化。
+
+`$set` 同理，如果直接用 `obj[prop]=newVal`，页面无法捕捉到数据变化，必须使用工具函数 `vm.$set() / Vue.set()`，用于添加新属性并触发数据视图双向绑定。给 vue 的对象动态添加新属性时，务必使用 `vm.$set`，否则无法触发视图改变。
+
+与双向绑定有关的函数不在当前 `state.js` ，而在 `src/core/observer/index.js` 中，`state.js` 通过 `import` 引入。
+
+[官方 api: Vue-set](https://v2.vuejs.org/v2/api/?#Vue-set)
+
+Adds a property to a reactive object, ensuring the new property is also reactive, so triggers view updates. This must be used to add new properties to reactive objects, as Vue cannot detect normal property additions (e.g. this.myObject.newProperty = 'hi').
+The target object cannot be a Vue instance, or the root data object of a Vue instance.
 
 Open `./state,js`, this is a long file, search `statemixin`.
 
@@ -340,8 +341,8 @@ This function defines:
 - `propsDef` and it's getter
 - setters for `dataDef` and `propsDef` if not built for production, which just log two warnings
 
-> `$data` 和 `$props` 的 getter 只是直接 `return` 了它们各自的值；
-> setter 主要就是在非生产环境抛出不能直接更改 vue 根实例属性的警告（避免用户 `vm.$data = {...}` ⬅️这样修改根实例的属性）。
+`$data` 和 `$props` 的 getter 只是直接 `return` 了它们各自的值；
+setter 主要就是在非生产环境抛出不能直接更改 vue 根实例属性的警告（避免用户 `vm.$data = {...}` ⬅️这样修改根实例的属性）。
 
 - `dataDef` to `Vue.prototype` as `$data`
 - `propsDef` to `Vue.prototype` as `$props`
@@ -367,14 +368,14 @@ This function defines:
 - `Vue.prototype.$on`
 - `Vue.prototype.$emit`
 
-> [设置/触发用户自定义事件](https://v2.vuejs.org/v2/api/?#vm-on)，通常用于父子组件的信息传递。
-> 
-> ```js
-> // 设置自定义事件 test
-> vm.$on('test', msg => console.log(msg))
-> // 在另一个地方触发自定义事件 test
-> vm.$emit('test', 'hello') // hello
-> ```
+[设置/触发用户自定义事件](https://v2.vuejs.org/v2/api/?#vm-on)，通常用于父子组件的信息传递。
+
+```js
+// 设置自定义事件 test
+vm.$on('test', msg =console.log(msg))
+// 在另一个地方触发自定义事件 test
+vm.$emit('test', 'hello') // hello
+```
 
 - `Vue.prototype.$once`
 
@@ -424,43 +425,52 @@ while (i--) { // 倒序遍历监听器
 }
 ```
 
-> vue 清空某一个对象的方式不是直接赋值 `null`，而是：
-> 
-> `vm._events = Object.create(null);`
-> 
-> 又出现了，以 `null` 为原型的对象：[null-prototype object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object#null-prototype_objects)。为什么使用这个？
-> 
-> > In practice, objects with `null` prototype are usually used as a cheap substitute for [maps](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map).
-> 
-> 也许就是为了防止 `Object.prototype` 上众多的原型成员函数们（比如 `toString(), hasOwnProperty()` 等）污染事件对象。
+vue 清空某一个对象的方式不是直接赋值 `null`，而是：
+
+`vm._events = Object.create(null);`
+
+又出现了，以 `null` 为原型的对象：[null-prototype object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object#null-prototype_objects)。为什么使用这个？
+
+> In practice, objects with `null` prototype are usually used as a cheap substitute for [maps](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map).
+
+也许就是为了防止 `Object.prototype` 上众多的原型成员函数们（比如 `toString(), hasOwnProperty()` 等）污染事件对象。
+
+`Object.create(null)` 是 truly 变量：
+
+```js
+let nullObject = Object.create(null);
+if (nullObject) {
+	console.log('null object is truly.'); // 会打印到控制台
+}
+```
 
 You must have used them for many times, just read the code and learn how to implement event manipulation elegantly.
 
-> 这个代码学到了：
-> 
-> `vm._events` 是否存在属性叫 `event`，不存在则赋值为空数组并且 push：
-> `(vm._events[event] || (vm._events[event] = [])).push(fn);`
-> 
-> 顺带一提，原来同一个事件可以绑定多个监听器函数。看 `$emit` 的代码实现也会发现，事件绑定的每一个函数都会执行一次。
+这个代码学到了：
 
-> 又学到一个写 for 循环的小 trick：
-> 
-> `for (let i = 0, l = nums.length; i < l; i++)`
-> 
-> 直接在括号里获得数组的长度 `l`。
+`vm._events` 是否存在属性叫 `event`，不存在则赋值为空数组并且 push：
+`(vm._events[event] || (vm._events[event] = [])).push(fn);`
 
-> 生命周期的 `hook:event` 似乎是特地为生命周期钩子函数留的口：
-> 
-> ```js
-> const hookRE = /^hook:/
-> // optimize hook:event cost by using a boolean flag marked at registration
-> // instead of a hash lookup
-> if (hookRE.test(event)) {
-> 	vm._hasHookEvent = true
-> }
-> ```
+顺带一提，原来同一个事件可以绑定多个监听器函数。看 `$emit` 的代码实现也会发现，事件绑定的每一个函数都会执行一次。
 
-> 再顺便一提，自定义事件的命名建议使用短横杠的 `event-name` 而不建议驼峰命名 `eventName`。因为 HTML 不区分大小写。`$emit` 会自动把事件名称转换为小写后再查找。
+又学到一个写 for 循环的小 trick：
+
+`for (let i = 0, l = nums.length; i < l; i++)`
+
+直接在括号里获得数组的长度 `l`。
+
+生命周期的 `hook:event` 似乎是特地为生命周期钩子函数留的口：
+
+```js
+const hookRE = /^hook:/
+// optimize hook:event cost by using a boolean flag marked at registration
+// instead of a hash lookup
+if (hookRE.test(event)) {
+	vm._hasHookEvent = true
+}
+```
+
+再顺便一提，自定义事件的命名建议使用短横杠的 `event-name` 而不建议驼峰命名 `eventName`。因为 HTML 不区分大小写。`$emit` 会自动把事件名称转换为小写后再查找。
 
 ### lifecycleMixin
 
@@ -487,7 +497,7 @@ Open `./render.js`, it defines `Vue.prototype._render()` and some helpers【比�
 
 Okay, so now we understand what those mixins do, they just set some functions to `Vue.prototype`.
 
-![这儿有个图片挂了](http://i.imgur.com/MhqgVXP.jpg)
+![[vue-src-03-04.png]]
 
 The important thing here is how to divide and organize a bunch of functions. How many parts would you make if you are the author? Which part should one function go? Think from the point of author's view, it's very interesting and helpful.
 
@@ -559,15 +569,80 @@ callHook(vm, 'created')
 
 `callHook()` is easy to understand, it just calls your hook functions. Next, we will explain the other six init functions in detail.
 
+`callHook()` 在 `src/core/instance/lifecycle.js`：
+
+```js
+export function callHook (vm: Component, hook: string) {
+// 对应生命周期 hook 的函数在 vm.$options 里
+  const handlers = vm.$options[hook]
+  // 如果有函数，则执行
+  // #fixme 为什么生命周期函数是一个数组？
+  if (handlers) {
+    for (let i = 0, j = handlers.length; i < j; i++) {
+      try {
+        handlers[i].call(vm)
+      } catch (e) {
+        handleError(e, vm, `${hook} hook`)
+      }
+    }
+  }
+  // #fixme 下面这个 hookEvent 是在哪里声明的？
+  if (vm._hasHookEvent) {
+    vm.$emit('hook:' + hook)
+  }
+}
+```
+
+`vm.$option` 对应的生命周期钩子们（摘录自[Vue api 指南](https://v2.vuejs.org/v2/api/#Options-Lifecycle-Hooks)）：
+
+![[vue-src-03-05.png | 240]]
+
+以上全部对应一个函数。
+
+在 vue 的指南中发现这个 tip，不能用箭头函数作为生命周期钩子函数：
+
+> All lifecycle hooks automatically have their `this` context bound to the instance, so that you can access data, computed properties, and methods. This means **you should not use an arrow function to define a lifecycle method** (e.g. `created: () => this.fetchTodos()`). The reason is arrow functions bind the parent context, so `this` will not be the Vue instance as you expect and `this.fetchTodos` will be undefined.
+
+解释在（coding 库中）：[[22-12-30-js-this-箭头函数-call-apply-bind]]。
+
 ### initLifecycle
 
 It's located in `./lifecycle`. 
 
 This function connects this component with its parent, initializes some variables used in lifecycle methods.
 
+这个函数把当前实例 `vm` 与它的所有上一级元素都链接起来（把当前实例加入到所有上一级元素的 `$children` 数组中 `parent.$options.$children.push(vm)`），并且把 `vm` 的父元素设置为最高级父元素（在父子链中备份最高的，比如 a1->a2->a3，a3 的 `$parent` 会被设置为 a1，而不是离得最近的 a2）。
+
+并且，把 `vm` 的 `$root` 设置为 `$parent.$root`；如果没有父元素，则设置为 `vm` 自身。
+
+一些与生命周期有关的变量初始化：
+
+```js
+vm._watcher = null
+vm._inactive = null
+vm._directInactive = false
+vm._isMounted = false
+vm._isDestroyed = false
+vm._isBeingDestroyed = false
+```
+
 ### initEvents
 
 It's located in `./events.js`.
+
+```js
+export function initEvents (vm: Component) {
+  vm._events = Object.create(null)
+  vm._hasHookEvent = false
+  // init parent attached events
+  const listeners = vm.$options._parentListeners
+  if (listeners) {
+    updateComponentListeners(vm, listeners)
+  }
+}
+```
+
+比较短。初始化与事件相关的变量，并且把当前实例的监听器初始化为父元素的监听器。
 
 This function initializes variables and updates them with its parent's listeners.
 
@@ -575,7 +650,51 @@ This function initializes variables and updates them with its parent's listeners
 
 It's located in `./render.js`.
 
+```js
+export function initRender (vm: Component) {
+  vm._vnode = null // the root of the child tree
+  vm._staticTrees = null
+  const parentVnode = vm.$vnode = vm.$options._parentVnode // the placeholder node in parent tree
+  const renderContext = parentVnode && parentVnode.context
+  vm.$slots = resolveSlots(vm.$options._renderChildren, renderContext)
+  vm.$scopedSlots = emptyObject
+  // bind the createElement fn to this instance
+  // so that we get proper render context inside it.
+  // args order: tag, data, children, normalizationType, alwaysNormalize
+  // internal version is used by render functions compiled from templates
+  vm._c = (a, b, c, d) => createElement(vm, a, b, c, d, false)
+  // normalization is always applied for the public version, used in
+  // user-written render functions.
+  vm.$createElement = (a, b, c, d) => createElement(vm, a, b, c, d, true)
+}
+```
+
 This function initializes `_vnode`, `_staticTrees` and some other variables and methods.
+
+#### 回忆 slot 的用法
+
+出现了 `$slot`。回忆一下 slot 的用法：
+
+首先，在一个文件中使用组件 `<my-component>`
+
+```vue
+<my-component>
+我会出现在插槽 slot 中
+</my-component>
+```
+
+组件 `<my-component>` 的代码 my-component.vue：
+
+```vue
+<template>
+	<p>
+		<!-- 我会出现在插槽 slot 中 -->
+		<slot></slot>
+	</p>
+</template>
+```
+
+简单说就是，被插入组件的开始标签和结束标签中间的值（`我会出现在插槽 slot 中`）会传递给组件中写有 `<slot></slot>` 的地方。`<slot>` 就类似一个 placeholder。
 
 Here we meet VNode for the first time. 
 
@@ -592,6 +711,8 @@ It's located in `./inject.js`.
 This function is short and simple, it just resolves the injections in options and set them to your component.
 
 But wait, what's that, is it `defineProperty`? No, it's `defineReactive`. The word `reactive` must remind you of something, Vue can update view automatically while data change, maybe we can find something related to that inside this function, let's go.
+
+#### defineReactive
 
 Open `../observer/index.js` and search `defineReactive`.
 
@@ -664,6 +785,18 @@ export function initState (vm: Component) {
 
 Old friends again. Here we get our props, methods, data, computed properties and watch functions. Let's check them one by one.
 
+定义一些熟悉的 Vue 实例属性：
+
+```js
+var vm = new Vue({
+	data: function() {},
+	props: [],
+	methods: {},
+	computed: {},
+	watch: {}
+})
+```
+
 #### initProps
 
 Do some validations and use `defineReactive` to wrap props and set them to the component.
@@ -712,7 +845,7 @@ Why do they have this order? I'll let you answer this.
 
 That's all. Hard to remember all inits? I made a picture for you:
 
-![](http://i.imgur.com/DImNrXn.jpg)
+![](./img/vue-src-03-06.jpeg)
 
 This article is a little long and contains many details. Init process is the basement of later articles, so make sure you have understood all contents.
 
