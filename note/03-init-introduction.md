@@ -8,11 +8,15 @@ In this article, we will learn:
 - Understand the init process
 - what  happened when you do `const app = new Vue(options);`
 
-#### `options` 到底包含哪些属性？
+ #fixme what happend when you do `import component from './component.vue';`
+
+## 一些疑问
+
+### options 到底包含哪些属性？
 
 见 [Vue 2.x Docs](https://v2.vuejs.org/v2/api/#Options-Data)。
 
-#### `new Vue(options)` 返回的 `Vue` 实例是什么？含义是？ 
+### new Vue(options) 返回的 Vue 实例？ 
 
 返回的实例就是一个「组件 component」，它对应页面上某一个组件。
 
@@ -27,7 +31,7 @@ CSS 的视角中，HTML 页面上由一个个「盒子」组成；而 Vue.js 视
 <script>
 	export default {
 		props: { /* 略 */},
-		data(){
+		data: function(){
 			return { /* 略 */ }
 		}
 	}
@@ -37,9 +41,22 @@ CSS 的视角中，HTML 页面上由一个个「盒子」组成；而 Vue.js 视
 <style>
 ```
 
+以上代码等价于：
+
+```js
+// 全局注册的 vue 组件
+Vue.component('myComponent', {
+	props: { /* 略 */ },
+	data: function(){
+		return { /* 略 */ }
+	},
+	template: `<!-- 略 -->`,
+})
+```
+
 假设同文件夹的 `myPage.vue` 要引入这个组件，则 `myPage.vue` 的 `<script>` 标签中会写：
 
-```vue
+```html
 <template>
 	<!-- 在模版中引用时，直接把 myComponent 当一个 html 标签一样使用 -->
 	<myComponent></myComponent>
@@ -48,7 +65,7 @@ CSS 的视角中，HTML 页面上由一个个「盒子」组成；而 Vue.js 视
 	import myComponent from './myComponent.vue';
 
 	export default { /* 略，这里是 myPage 的 options */ }
-<script>
+</script>
 ```
 
 `options` 就是组件 `.vue` 文件中 `export default { /* 我就是 options */ }` 导出的 `Object` 对象，是一些描述组件特性（`data, props` 等，以及 `mount()` 等生命周期钩子）的属性及其值。
@@ -59,7 +76,7 @@ CSS 的视角中，HTML 页面上由一个个「盒子」组成；而 Vue.js 视
 
 We are inside `src/core/instance/index.js` now.
 
-补：这个文件是 `Vue` 声明所在的文件。
+补：这个文件是 `Vue` 类声明所在的文件。
 
 ```javascript
 import { initMixin } from './init'
@@ -85,7 +102,8 @@ function Vue (options) {
 }
 
 // 这些函数在这里被调用，并传入 Vue 作为参数
-// Q: 这个文件什么时候被执行？被谁执行？A: 在 import Vue 时就执行，即在 new Vue() 之前就已经执行
+// Q: 这个文件什么时候被执行？被谁执行？
+// A: 在 import Vue 时就执行，即在 new Vue() 之前就已经执行
 initMixin(Vue)
 stateMixin(Vue)
 eventsMixin(Vue)
@@ -95,9 +113,12 @@ renderMixin(Vue)
 export default Vue
 ```
 
-#### `!(this instanceof Vue)` 的含义是什么？
+### 一些疑问
+
+#### !(this instanceof Vue) 的含义
  
 我们可以从 if 的代码块中打印的警告获得提示：Vue 是一个构造函数，应当通过 new 关键字调用。 
+
 这个警告告诉我们，`Vue()` 应当且只应当用 `new Vue()` 的方式调用。
 问题来了：为什么 `!(this instanceof Vue)`  可以用于判断其调用方式呢？
  
@@ -118,7 +139,7 @@ export default Vue
  }
  ```
 
-#### 另一个疑惑，为什么在 Vue 的声明之后调用这几个函数？这些函数什么时候会执行？
+#### 为什么在 Vue 的声明后调用这几个函数？什么时候执行？
  
 简答：在 `import Vue from 'core/index'` 时就会执行。注意，不是在 `new Vue()` 时执行，而是在 `import` 语句执行时，被引入的文件 `core/index` 就会整体被执行。
  
@@ -131,6 +152,7 @@ First, we will walk through those five mixins, find out what they do. Then we go
 ### initMixin
 
 `initMixin` 给 `Vue` 的原型（`Vue.prototype`，相当于加在类上，即每一个实例上）加了一个成员函数 `_init()`。
+
 `_init()` 会初始化 vue 实例的 `$options` 等等。
 
 Open `./init.js`, scroll to the bottom and read definitions.
@@ -242,14 +264,14 @@ function initInternalComponent(
 
 ### stateMixin
 
-下两张图截自 vue 的官方 api 文档目录，即本小节 `stateMixin` 负责初始化的实例属性和方法：
+下两张图截自 vue 的官方 api 文档目录，包含了本小节 `stateMixin` 负责初始化的所有实例属性和方法：
 
 ![[vue-src-03-02.png | 150]]
 ![[vue-src-03-00.png| 200]]
 
-`stateMixin` 给 Vue 的原型加了很多私有变量的拦截器（就是加了 setter 和 getter，防止用户直接接触到私有变量，套一层保护壳保护私有变量 `this._data` 和 `this._props` ）和触发双向绑定的工具函数（官方api 中的 [Global API](https://v2.vuejs.org/v2/api/?#Global-API)），主要是 `$data, $props, $watch, $set, $delete`。
+`stateMixin` 给 Vue 的原型加了很多私有变量的拦截器（i.e. 加了 setter 和 getter，防止用户直接接触私有变量，套一层保护壳保护私有变量 `this._data` 和 `this._props` ）和触发双向绑定的工具函数（官方api 中的 [Global API](https://v2.vuejs.org/v2/api/?#Global-API)），主要是 `$data, $props, $watch, $set, $delete`。
 
-前三者都是写 vue 模版代码时最常见的那几个：
+前三者都是写 `*.vue` 代码时最常见的那几个属性：
 
 ```js
 props: ['initialCounter'],
@@ -435,6 +457,10 @@ vue 清空某一个对象的方式不是直接赋值 `null`，而是：
 
 也许就是为了防止 `Object.prototype` 上众多的原型成员函数们（比如 `toString(), hasOwnProperty()` 等）污染事件对象。
 
+另外，[Object.defineProperty()](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty) 也提到 `Object.create(null)` 的用途：
+
+> 记住，这些选项【指属性描述符的各个属性】不一定是自身属性，也要考虑继承来的属性。为了确认保留这些默认值，在设置之前，可能要冻结 [`Object.prototype` (en-US)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object "Currently only available in English (US)")，明确指定所有的选项，或者通过 [`Object.create(null)`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Object/create) 将 [`Object.prototype.__proto__`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Object/proto) 属性指向 [`null`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/null)。
+
 `Object.create(null)` 是 truly 变量：
 
 ```js
@@ -477,6 +503,7 @@ if (hookRE.test(event)) {
 Open `lifecycle.js`, scroll down to find `lifecycleMixin`.
 
 下图依然截取自官方 api 文档目录：
+
 ![[vue-src-03-03.png | 200]]
 
 This function defines:
@@ -491,7 +518,7 @@ Keep going, we get several functions about the component. They are used in DOM u
 
 ### renderMixin
 
-Open `./render.js`, it defines `Vue.prototype._render()` and some helpers【比如 `Vue.prototype.$nextTick`. They will also appear in later articles, just keep in mind that we meet `_render` here.
+Open `./render.js`, it defines `Vue.prototype._render()` and some helpers（比如 `Vue.prototype.$nextTick`）. They will also appear in later articles, just keep in mind that we meet `_render` here.
 
 ---
 
@@ -501,7 +528,7 @@ Okay, so now we understand what those mixins do, they just set some functions to
 
 The important thing here is how to divide and organize a bunch of functions. How many parts would you make if you are the author? Which part should one function go? Think from the point of author's view, it's very interesting and helpful.
 
-## Understand the init process
+## Understand the init process `_init()`
 
 After looking the static parts, now we go back to the core.
 
@@ -611,11 +638,11 @@ It's located in `./lifecycle`.
 
 This function connects this component with its parent, initializes some variables used in lifecycle methods.
 
-这个函数把当前实例 `vm` 与它的所有上一级元素都链接起来（把当前实例加入到所有上一级元素的 `$children` 数组中 `parent.$options.$children.push(vm)`），并且把 `vm` 的父元素设置为最高级父元素（在父子链中备份最高的，比如 a1->a2->a3，a3 的 `$parent` 会被设置为 a1，而不是离得最近的 a2）。
+这个函数连接当前实例 `vm` 与它的所有上一级元素（把当前实例加入到所有上一级元素的 `$children` 数组中 `parent.$options.$children.push(vm)`），并且把 `vm` 的父元素设置为最高级父元素（在父子链中辈份最高的，比如 a1->a2->a3，a3 的 `$parent` 会被设置为 a1，而不是离得最近的 a2）。
 
 并且，把 `vm` 的 `$root` 设置为 `$parent.$root`；如果没有父元素，则设置为 `vm` 自身。
 
-一些与生命周期有关的变量初始化：
+初始化一些与生命周期有关的变量：
 
 ```js
 vm._watcher = null
@@ -677,7 +704,7 @@ This function initializes `_vnode`, `_staticTrees` and some other variables and 
 
 首先，在一个文件中使用组件 `<my-component>`
 
-```vue
+```html
 <my-component>
 我会出现在插槽 slot 中
 </my-component>
@@ -685,7 +712,7 @@ This function initializes `_vnode`, `_staticTrees` and some other variables and 
 
 组件 `<my-component>` 的代码 my-component.vue：
 
-```vue
+```html
 <template>
 	<p>
 		<!-- 我会出现在插槽 slot 中 -->
@@ -706,6 +733,8 @@ We will talk about render and update later.
 
 ### initInjections
 
+`inject` 是从上层组件传递下来的属性。具体使用见下面 [[#provide 和 inject 依赖注入]]。
+
 It's located in `./inject.js`.
 
 This function is short and simple, it just resolves the injections in options and set them to your component.
@@ -714,9 +743,35 @@ But wait, what's that, is it `defineProperty`? No, it's `defineReactive`. The wo
 
 #### defineReactive
 
+> 注释：Define a reactive property on an Object. 
+
+输入参数：`defineReactive(obj, key, val, customSetter?)`
+作用：当 `obj.key` 改变，对应的视图也随之改变。
+
+ #fixme 这是数据 -> 视图的单向绑定（[[Vue-MVVM-对架构的理解]]）？还是双向绑定？
+
+  #fixme val 的作用是？curstomSetter 的作用是？
+
 Open `../observer/index.js` and search `defineReactive`.
 
 This function first defines `const dep = new Dep()`, does some validation, then extracts the getter and setter.
+
+ #fixme what is Dep? 
+
+核心代码前，`defineReactive` 检查了 `obj` 对象的 `key` 属性的属性描述符的 `configurable`：
+
+```js
+const property = Object.getOwnPropertyDescriptor(obj, key)
+if (property && property.configurable === false) {
+	return
+}
+```
+
+顺便回忆一下：`configurable` 为 `true` 表明 1）属性的**属性描述**可以更改；2）属性可以被删除。
+
+ #fixme `value` 也属于属性描述，当 `configurable` 等于 `false`，且 `writable` 等于 `true` 时，能够使用 `obj.prop = ...` 来修改属性的 `value` 吗？
+
+以下是 `defineReactive` 的核心代码：
 
 ```javascript
 let childOb = observe(val) // <-- IMPORTANT
@@ -765,6 +820,27 @@ This `defineReactive` function is used in many places, not only in initInjection
 
 ### initState
 
+牢记此函数对应的 vue 使用场景是：
+
+```js
+new Vue({
+	data: {/* data 存的是一个函数，因此处理方式与其他存对象的属性不同 */},
+	props: {/* 这个对象传递给 initProps */},
+	methods: {/* 这个对象传递给 initMethods */},
+	computed: {/* 这个对象传递给 initComputed */},
+	watch: {/* 这个对象传递给 initWatch */},
+	/* 其他 options 略 */
+})
+
+// data 的特殊处理（在 initData 中）：
+let data = vm.$options.data
+data = vm._data = typeof data === 'function'
+    ? getData(data, vm)
+    : data || {}
+```
+
+`initState` 实际上承担了 Vue 构造函数的部分初始化功能。
+
 It's located in `./state.js`.
 
 ```javascript
@@ -801,15 +877,80 @@ var vm = new Vue({
 
 Do some validations and use `defineReactive` to wrap props and set them to the component.
 
+ #fixme 下面这段代码的作用没懂，主要是不懂 1）第四个参数 customSetter 里 warn(...) 里的那段话；2）if 的条件代表什么情况？3）「mutate」 怎么理解？
+
+```js
+defineReactive(props, key, value, () => {
+	if (vm.$parent && !observerState.isSettingProps) {
+	  warn(
+		`Avoid mutating a prop directly since the value will be ` +
+		`overwritten whenever the parent component re-renders. ` +
+		`Instead, use a data or computed property based on the prop's ` +
+		`value. Prop being mutated: "${key}"`,
+		vm
+	  )
+	}
+  })
+```
+
+ #fixme  为什么这样⬇️处理不在 vm 实例和其原型链上的属性？
+
+```js
+// propsOptions 是输入参数，initProps(vm, propsOptions)
+for (const key in propsOptions) {
+	// key 为 propsOptions 的对象和原型链的所有可枚举属性
+	
+	// ... 略过一大段代码
+	
+	if (!(key in vm)) { 
+	// key 属性不在 vm 实例和其原型链上
+	  proxy(vm, `_props`, key)
+	}
+}
+```
+
+有哪些属性会用 `proxy()` 来代理？
+
+回忆 [`for...in`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/for...in) 枚举的属性特点：
+
+> **`for...in`** **语句**以任意顺序迭代一个对象的除[Symbol](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Symbol)以外的[可枚举](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Enumerability_and_ownership_of_properties)属性，包括继承的可枚举属性。
+
+回忆 [`in`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/in) 运算符：
+
+> 如果指定的属性在指定的对象或其原型链中，则 **`in`** **运算符**返回 `true`。
+
+ proxy() 的声明：
+
+```js
+// 和 initState 的声明一起在 ./state.js 里，
+export function proxy (target: Object, sourceKey: string, key: string) {
+  sharedPropertyDefinition.get = function proxyGetter () {
+    return this[sourceKey][key]
+  }
+  sharedPropertyDefinition.set = function proxySetter (val) {
+    this[sourceKey][key] = val
+  }
+  Object.defineProperty(target, key, sharedPropertyDefinition)
+}
+```
+
 #### initMethods
 
 Just set methods to the component.
+
+ #fixme 这里初始化的 methods 是在 `new Vue(options)` 的 `options` 里输入的吗？
 
 #### initData
 
 More validations, but here it uses `proxy` to set data, search `proxy` and read it, you know it will proxy operations like `this.name` to `this._data['name']`. 
 
 At the end, this function calls `observe(data, true) /* asRootData */`. We will talk about Observer in later articles, here I just want to explain that `true`. Each observed object has a property called `vmCount` which means how many components use this object as root data. If you call `observe` with `true`, it will call `vmCount++`. The default value of `vmCount` is `0`.
+
+> `vmCount`，使用此 data 的 vue 实例的个数。作用未知 #fixme 。
+
+ #fixme 「root data」的含义是？根实例的 data 对象吗？
+
+> 「observed object」可以理解为 [[Vue-MVVM-对架构的理解]] 图中的 Model 存储的数据们，即 `vm.$data, vm.$props` 等。
 
 Maybe this property will be used in other process, but after a global search, I just find Vue uses it as a sign for root data. If `ob && ob.vmCount`, this object must be a root data.
 
@@ -823,9 +964,32 @@ You can guess what the name Watcher means, but we will leave it to later article
 
 This function creates watcher for each input uses `createWatcher()`. `createWatcher()` calls `vm.$watch()` which is defined in `stateMixin`. Scroll to the end to see it. `vm.$watch()` will create Watcher and...What?! It may call `createWatcher()` again! What the hell is it doing?
 
-Read it carefully, if `cb` is plain object, `$watch()` will call `createWatcher()`. And inside `createWatcher()`, it will extract options and handler if the handler(in `$watch()` it's named `cb`) is plain object. Alright, `$watch()` just through it back because he doesn't want to do extra jobs.
+`$watch` 哪里调用 `createWatcher` 了？ #fixme 
+
+```js
+ Vue.prototype.$watch = function (
+    expOrFn: string | Function,
+    cb: Function,
+    options?: Object
+  ): Function {
+    const vm: Component = this
+    options = options || {}
+    options.user = true
+    const watcher = new Watcher(vm, expOrFn, cb, options)
+    if (options.immediate) {
+      cb.call(vm, watcher.value)
+    }
+    return function unwatchFn () {
+      watcher.teardown()
+    }
+  }
+```
+
+Read it carefully, if `cb` is plain object, `$watch()` will call `createWatcher()`. And inside `createWatcher()`, it will extract options and handler if the handler(in `$watch()` it's named `cb`) is plain object. Alright, `$watch()` just through it back because he doesn't want to do extra jobs. #fixme 这段在讲啥啊
 
 ### initProvider
+
+`provide` 是上层组件要传递给下层组件的属性。
 
 It's located also in `./inject.js`.
 
@@ -855,9 +1019,9 @@ I'm not intend to tell you everything, so I suggest you read the whole init proc
 
 This article shows the whole initialization process. After initialization, data can be modified, views will also sync with data. How does Vue implement the data updating process? Next article will reveal it.
 
-Read next chapter: [Dynamic Data - Observer, Dep and Watcher](https://github.com/numbbbbb/read-vue-source-code/blob/master/04-dynamic-data-observer-dep-and-watcher.md).
+Read next chapter: [[04-dynamic-data-observer-dep-and-watcher]]. 
 
-## Practice
+## Practice ✅
 
 ```javascript
 initInjections(vm) // resolve injections before data/props
@@ -869,3 +1033,72 @@ Why do they have this order? I'll let you answer this.
 
 Hint: think from another side, what will happen if you change their order?
 
+### provide 和 inject 依赖注入
+
+> [Vue guide: 依赖注入](https://cn.vuejs.org/guide/components/provide-inject.html#prop-drilling)
+
+vue 中父组件传递数据给子组件的方式是通过 `prop`，但是 `prop` 必须用在亲子关系上，如果要用在爷孙甚至曾爷爷孙子关系上，就必须在每一层都使用 props，逐层传递下去：
+
+![](./img/vue-basic-prop-problem.png)
+
+provide 和 inject 就用于解决跨层传递数据问题：
+
+爷爷组件：
+
+```js
+export default{
+	provide: {
+		message: 'Hello grandson!'
+	}
+}
+```
+
+或者，如果想引用 `data` 中的属性（！）：
+
+```js
+export default{
+	data: function() {
+		return {
+			message: 'Hello grandson from data!'
+		}
+	},
+	provide: function(){ // 使用函数的形式，可以访问到 `this`
+		return {
+			message: this.message
+		}
+	}
+}
+```
+
+为什么用函数的形式才能访问到 `this` 呢？答案在源码里：
+
+```js
+export function initProvide (vm: Component) {
+  const provide = vm.$options.provide
+  if (provide) {
+    vm._provided = typeof provide === 'function'
+      ? provide.call(vm)
+      : provide
+  }
+}
+```
+
+函数类型的 `provide` 使用 `call` 来把函数调用者设置为实例 `vm`，相当于 `vm.provide()`，`provide()` 自然就能访问 `vm.$data` 了。
+
+孙子组件：
+
+```js
+export default{
+	inject: ['message']
+}
+```
+
+### 解答
+
+Vue 官方指南中有对 Practice 的问题的提示：
+
+> 注入会在组件自身的状态**之前**被解析，因此你可以在 `data()` 中访问到注入的属性
+
+`initInjections` 之所以放在 `initState` 之前执行，是为了在 `data` 中访问到 `inject` 中的属性。
+
+同理，为什么 `initProvide` 要放在 `initState` 之后执行？因为 `provide` 中可能会引用 `data` 中的属性，所以 `provide` 的初始化必须在 `data` 和 `prop` 之后。
