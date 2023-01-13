@@ -236,6 +236,8 @@ Don't miss `shouldDecodeNewlines`, you can see how they fight with IE.
 
 ---
 
+> **本部分涉及到的源码均在 `src/core/util` 中。**`src/core` 包含 Vue 的各种核心代码的声明和实现，比如 Vue 类声明、实例化、Observer、VDom 等。
+
 首先找到 util 函数的文件路径：
 
 ```js

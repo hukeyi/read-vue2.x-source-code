@@ -151,6 +151,8 @@ Vue is a big open source project, which means it must be divided into many layer
 
 The entire Vue function is composited after four steps.
 
+ #fixme 下面这图幻视装饰者模式 decorator pattern，是否属于装饰者模式？
+
 ![](http://i.imgur.com/cpz3Izw.jpg)
 
 This multiple layers pattern has many advantages:
