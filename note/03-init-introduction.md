@@ -4,13 +4,45 @@ This article belongs to the series [Read Vue Source Code](https://github.com/num
 
 In this article, we will learn:
 
-- What those mixins do
+- What those mixins do：初始化 `Vue` 实例的各种数据成员
 - Understand the init process
 - what  happened when you do `const app = new Vue(options);`
+	- 本文过了一遍 `Vue` 类的初始化和实例化流程
 
- #fixme what happend when you do `import component from './component.vue';`
+## vue 核心文件结构
+
+**本文涉及到的源码均在 `src/core/instance` 中。**
+
+源码的主要文件：
+
+```text
+- build
+- dist
+- ...
+- src
+	- platforms
+	- ...
+	- core
+		- instance
+		- observer
+		- vdom
+		- components
+```
+
+`./dist`
+
+> The shortform dist stands for distributable and refers to **a directory where files will be stored that can be directly used by others without the need to compile or minify the source code that is being reused**.
+
+`/src/core` 包含 Vue 的核心代码：
+
+`/src/core/instance` 包含 `Vue` 类的声明，负责 `Vue` 的实例化。
+`/src/core/observer` 包含观察者模式实现的代码。
+`/src/core/vdom` 包含 `VNode` 虚拟 DOM 的声明和操作封装。
+`/src/core/components` 包含 `keep-alive` 的实现。
 
 ## 一些疑问
+
+ #fixme what happend when you do `import component from './component.vue';`
 
 ### options 到底包含哪些属性？
 
@@ -745,6 +777,8 @@ But wait, what's that, is it `defineProperty`? No, it's `defineReactive`. The wo
 
 > 注释：Define a reactive property on an Object. 
 
+> `defineReactive()` 会在 [[04-dynamic-data-observer-dep-and-watcher]] 中详细探讨。
+
 输入参数：`defineReactive(obj, key, val, customSetter?)`
 作用：当 `obj.key` 改变，对应的视图也随之改变。
 
@@ -755,8 +789,6 @@ But wait, what's that, is it `defineProperty`? No, it's `defineReactive`. The wo
 Open `../observer/index.js` and search `defineReactive`.
 
 This function first defines `const dep = new Dep()`, does some validation, then extracts the getter and setter.
-
- #fixme what is Dep? 
 
 核心代码前，`defineReactive` 检查了 `obj` 对象的 `key` 属性的属性描述符的 `configurable`：
 
