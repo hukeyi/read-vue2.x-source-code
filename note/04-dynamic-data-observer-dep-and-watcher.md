@@ -15,6 +15,8 @@ How to implement that? You will see in this article.
 
 I won't give you the entire structure now, cause I want to show you how I build that through reading source code.
 
+> 本文所有代码文件都位于 `src/core/observer`
+
 ## Observer
 
 In the previous article, we have seen `defineReactive` which is used to make a property `reactive`. Let's see its usage in `defineReactive()`.
@@ -490,26 +492,43 @@ Our next target is `Dep()`.
 
 ## Dep
 
-#todo  23-01-13 stopped here
+补：注释解释 dep
+
+```css
+/**
+ * A dep is an observable that can have multiple
+ * directives subscribing to it.
+ */
+```
+
+`Dep` 实例是「被观察者」。一个实例可以被多个 `Watcher` 实例「订阅」。类似社媒「用户-订阅者」的关系，「dep-subs（ `Watcher` 实例数组）」。
+
+`Dep` 类有三个数据成员：
+
+```js
+static target: ?Watcher; // Dep.target 的解释在下面，代表正在被 evaluated 的 Watcher 实例对象
+id: number; // dep 的 id 标识
+subs: Array<Watcher>; // 订阅了 dep 的订阅者 watcher 列表
+```
 
 Open `./dep.js`, you can see this class has only four methods.
 
 ```javascript
-addSub (sub: Watcher) {
+addSub (sub: Watcher) { // 添加新订阅者
   this.subs.push(sub)
 }
 
-removeSub (sub: Watcher) {
+removeSub (sub: Watcher) { // 删除指定订阅者
   remove(this.subs, sub)
 }
 
-depend () {
-  if (Dep.target) {
-    Dep.target.addDep(this)
+depend () { // 把当前 dep 对象加入正在 evaluted 的 watcher 中
+  if (Dep.target) { // 当前正在 evaluated 的 Watcher 实例对象
+    Dep.target.addDep(this) // 在上述 watcher 实例中添加新的订阅对象
   }
 }
 
-notify () {
+notify () { // 通知 subs 订阅列表中的所有订阅者，当前 dep 实例更新
   // stabilize the subscriber list first
   const subs = this.subs.slice()
   for (let i = 0, l = subs.length; i < l; i++) {
@@ -518,11 +537,34 @@ notify () {
 }
 ```
 
-`addSub()`, `removeSub()` and `notify()` deal with watchers. Each `Dep` instance has an array to store its watchers and tell them to `update()` during `notify()`. We have seen that `notify()` will be called in a setter, so if you change a reactive property, it will trigger watchers' updating.
+`addSub()`, `removeSub()` and `notify()` deal with watchers. Each `Dep` instance has an array to store its watchers and tell them to `update()` during `notify()`. We have seen that `notify()` will be called in a setter, so if you change a reactive property, it will trigger watchers' updating.（`notify()` 被调用后，会触发相应订阅者的更新）
 
 `depend()` is strange, it first checks `Dep.target`, if it exists, call `Dep.target.addDep(this)`. What is `Dep.target`?
 
-In the comments below this class, we can learn that `Dep.target` is globally unique. It's the watcher being evaluated now.
+In the comments below this class, we can learn that **`Dep.target` is globally unique. It's the watcher being evaluated now.**
+
+`Dep.target` 是**全局变量**。它代表**当前正在被 evaluated 的 the Watcher 实例对象**（同一时间只能有一个 watcher 实例被 evaluated）：
+
+```js
+// the current target watcher being evaluated.
+// this is globally unique because there could be only one
+// watcher being evaluated at any time.
+Dep.target = null
+const targetStack = []
+// 如果当前 watcher 需要另一个 watcher2 的值，那么
+// 先将 watcher 入栈暂存；然后处理 watcher2，并把当前执行观察者（Dep.target）设置为 watcher2；
+// 处理完 watcher 2 后，watcher 出栈，并且当前执行观察者被重置为 watcher
+// 「后来者先执行」，因为最新数据应具有最高优先级；后来的数据覆盖先来的
+
+export function pushTarget (_target: Watcher) {
+  if (Dep.target) targetStack.push(Dep.target)
+  Dep.target = _target
+}
+
+export function popTarget () {
+  Dep.target = targetStack.pop()
+}
+```
 
 Next to it are two functions for stack operations. It's easy to understand if one watcher wants to get another watcher's value during evaluation, we need to store current target, switch to the new target and come back after it finishes.
 
@@ -543,10 +585,10 @@ Let's go on with `get()`, this is the only thing we get from `constructor()`.
  * Evaluate the getter, and re-collect dependencies.
  */
 get () {
-  pushTarget(this)
+  pushTarget(this) // 把当前 watcher push 入 Dep.target 栈；
   let value
-  const vm = this.vm
-  if (this.user) {
+  const vm = this.vm // 当前 vue 实例
+  if (this.user) { // ? #fixme 
     try {
       value = this.getter.call(vm, vm)
     } catch (e) {
@@ -585,13 +627,15 @@ Imagine we have a component like this:
 
 We know that `data` will be converted to reactive property, it's value, the object will be observed. If you get data use `this.foo` it will be proxied to `this._data['foo']`.
 
-Now let's try to build a watcher step-by-step:
+Now let's try to build a watcher step-by-step【创建 watcher 实例的步骤】:
 
-- assign our input function to getter
-- call `this.get()`
+ #todo last time end here
+
+- assign our input function to getter【input function: `newName()`】
+- call `this.get()`【`get()` 执行 getter 并重新获取依赖关系 deps】
 - call `pushTarget(this)` which changes `Dep.target` to this watcher
-- call `this.getter.call(vm, vm)`
-- run `return this.foo + 'new!'`
+- call `this.getter.call(vm, vm)`【执行 `vm.newName()`】
+- run `return this.foo + 'new!'`【执行 `vm.newName()`】
 - because `this.foo` is proxied to `this._data[foo]`, the reactive property `_data`'s getter is triggered
 - inside the getter, it calls `dep.depend()`
 - inside `depend()`, it calls `Dep.target.addDep(this)`, here `this` refers to the const `dep`, it's `_data`'s dep
