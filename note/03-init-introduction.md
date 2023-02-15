@@ -1073,7 +1073,7 @@ vue 中父组件传递数据给子组件的方式是通过 `prop`，但是 `prop
 
 ![](./img/vue-basic-prop-problem.png)
 
-provide 和 inject 就用于解决跨层传递数据问题：
+provide 和 inject 就用于简化跨层传递数据问题：
 
 爷爷组件：
 
