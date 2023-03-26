@@ -23,6 +23,8 @@ In the previous article, we have seen `defineReactive` which is used to make a p
 
 > 位于 `src/core/observer/index.js`
 
+### defineReactive()
+
 ```javascript
 /**
  * Define a reactive property on an Object.
@@ -33,7 +35,7 @@ export function defineReactive (
   val: any,
   customSetter?: Function
 ) {
-  const dep = new Dep()
+  const dep = new Dep() // #fixme 这里的 dep 是闭包吗
 
   const property = Object.getOwnPropertyDescriptor(obj, key)
   if (property && property.configurable === false) {
@@ -43,16 +45,26 @@ export function defineReactive (
   // cater for pre-defined getter/setters
   const getter = property && property.get
   const setter = property && property.set
-
+  // 获得 val 的 observer 实例；如果存在，则用旧的；如果不存在，则创建新的返回
+  // childOb 就是 val 的 observer
   let childOb = observe(val)  // <-- IMPORTANT
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
+	// 思考 getter 和 setter 作用的时候，
+	// 应当结合「实际情境」想象——什么时候会用到这个 getter/setter？
+	// 比如，当有一个组件是 `<span>{{ msg }}</span>` 时，
+	// obj 是 $data，val 是 msg ⬅️ #fixme 这个想法对吗
     get: function reactiveGetter () {
       const value = getter ? getter.call(obj) : val
       if (Dep.target) {
+        // dep.depend(): assign Dep.target(current running watcher) to dep.subs
+        // #fixme 每次都要 assign 吗？为什么要在每次获取 reactive 属性时 assgin？
+        // 不可以在初始化的时候 assign 然后一劳永逸吗
         dep.depend() // <-- IMPORTANT
         if (childOb) {
+        // dep.depend() 表示当前 running 的 watcher 订阅了(depend on) dep
+        // 类比社媒的【添加关注】
           childOb.dep.depend() // <-- IMPORTANT
         }
         if (Array.isArray(value)) {
@@ -450,7 +462,7 @@ After that(`augment(value, arrayMethods, arrayKeys)`), it calls `observeArray()`
 
 #### walk(obj)
 
-枚举 `obj` 上的所有属性，在每一个属性上调用 `defineReactive`。
+枚举 `obj` 上的所有属性，在每一个属性上调用 `defineReactive`。给 obj 上所有属性绑上双向绑定。
 
 If the value is not an array, this function just walks through all keys and use `defineReactive()` to convert all values into a reactive property.
 
@@ -461,7 +473,7 @@ As you can see, `defineReactive()` calls `new Observer()`, `Observer()` may also
 **To be clear, we use `defineReactive()` to create reactive PROPERTY, and we use `observe()` to create Observer for the VALUE of that PROPERTY(if the value is object).**
 
 `defineReactive()` 用于监听对象的**属性**；
-`observe()` 用于深度监听对象上**类型为 Object 的属性的值**。
+`observe()` 用于深度监听对象上**属性值类型为 Object 的属性值**。
 
 因为，当对象属性值为 Object，实际存储的是内存地址，只要内存地址不改变，无论地址上的内容（i.e. 属性值）如何改变，都不会触发更新响应。
 
@@ -501,7 +513,7 @@ Our next target is `Dep()`.
  */
 ```
 
-`Dep` 实例是「被观察者」。一个实例可以被多个 `Watcher` 实例「订阅」。类似社媒「用户-订阅者」的关系，「dep-subs（ `Watcher` 实例数组）」。
+`Dep` 实例是用户（Observer 对应的响应属性）的「订阅列表」。订阅列表可以拥有多个 `Watcher` 实例。类似社媒「用户-粉丝列表-订阅者」的关系，「observer-dep-subs（ `Watcher` 实例数组）」。
 
 `Dep` 类有三个数据成员：
 
@@ -545,6 +557,8 @@ In the comments below this class, we can learn that **`Dep.target` is globally u
 
 `Dep.target` 是**全局变量**。它代表**当前正在被 evaluated 的 the Watcher 实例对象**（同一时间只能有一个 watcher 实例被 evaluated）：
 
+> #todo remember to link to `coding` repo [[23-03-05-design-pattern-vue-observer-pattern-new-bing-vue#w#why we need Dep.target]] 详细解释了 Dep.target 的用处和必要性
+
 ```js
 // the current target watcher being evaluated.
 // this is globally unique because there could be only one
@@ -578,6 +592,34 @@ Open `./watcher.js`, it's a little long but...hey, we are right, Watcher has the
 
 The `constructor` simply initials some variables, set your computed function or watch expression to `this.getter` and try to get the value if it's not lazy.
 
+```js
+export default class Watcher{
+	constructor(vm, expOrFn, cb, options){
+		/* 一些变量初始化*/
+		this.getter = expOrFn
+	}
+}
+```
+
+根据初始化函数可知，下文的 `this.getter` （记为获取更新值的函数）指传入 Vue 实例的变量对应的函数。举例说明：
+
+```js
+var vm = new Vue({
+	data: {
+		a: 1
+	},
+	watch: {
+		a: function(newVal, oldVal){
+			console.log(`Change of varable a from ${oldVal} to ${newVal}. `);
+		}
+	}
+})
+```
+
+上一段代码表示，`data['a']` 的 Watcher 实例就是 `vm` 的 `watch` 对象中的 `a` 传入的函数 `function(newVal, oldVal){...}`。用于获取 Watcher 观察的订阅对象更新后的新值。
+
+> 注意 `getter` 函数千万**不能使用箭头函数**，原因： #todo note 库合并到 coding 库后在这里引入：22-12-30-js-this-箭头函数-call-apply-bind 。
+
 Let's go on with `get()`, this is the only thing we get from `constructor()`.
 
 ```javascript
@@ -588,9 +630,9 @@ get () {
   pushTarget(this) // 把当前 watcher push 入 Dep.target 栈；
   let value
   const vm = this.vm // 当前 vue 实例
-  if (this.user) { // ? #fixme 
+  if (this.user) { // ? #fixme whats this
     try {
-      value = this.getter.call(vm, vm)
+      value = this.getter.call(vm, vm) // 获取订阅对象更新后的新值
     } catch (e) {
       handleError(e, vm, `getter for watcher "${this.expression}"`)
     }
@@ -600,7 +642,8 @@ get () {
   // "touch" every property so they are all tracked as
   // dependencies for deep watching
   if (this.deep) {
-    traverse(value)
+    traverse(value) // 递归遍历 value(订阅对象的新值)
+    // 为深度观察收集新的 dep
   }
   popTarget()
   this.cleanupDeps()
@@ -625,20 +668,18 @@ Imagine we have a component like this:
 }
 ```
 
-We know that `data` will be converted to reactive property, it's value, the object will be observed. If you get data use `this.foo` it will be proxied to `this._data['foo']`.
+We know that `data` will be converted to reactive property, it's value, the object【i.e. `{ name: 'foo' }`】 will be observed. If you get data use `this.foo` it will be proxied to `this._data['foo']`.
 
 Now let's try to build a watcher step-by-step【创建 watcher 实例的步骤】:
-
- #todo last time end here
 
 - assign our input function to getter【input function: `newName()`】
 - call `this.get()`【`get()` 执行 getter 并重新获取依赖关系 deps】
 - call `pushTarget(this)` which changes `Dep.target` to this watcher
 - call `this.getter.call(vm, vm)`【执行 `vm.newName()`】
-- run `return this.foo + 'new!'`【执行 `vm.newName()`】
-- because `this.foo` is proxied to `this._data[foo]`, the reactive property `_data`'s getter is triggered
-- inside the getter, it calls `dep.depend()`
-- inside `depend()`, it calls `Dep.target.addDep(this)`, here `this` refers to the const `dep`, it's `_data`'s dep
+- **run `return this.foo + 'new!'`【执行 `vm.newName()`】**
+- **because `this.foo` is proxied to `this._data[foo]`, the reactive property `_data`'s getter is triggered**
+- **inside the getter, it calls `dep.depend()`**
+	- inside `depend()`, it calls `Dep.target.addDep(this)`, here `this` refers to the const `dep`【i.e. `dep.depend()` 里的 `dep`】, it's `_data`'s dep
 - then it calls `childOb.dep.depend()` which add the dep of `childOb` to our target. Notice this time the `this` of `Dep.target.addDep(this)` refers to `childOb.__ob__.dep`
 - inside `addDep()`, the watcher add this dep to it's `this.newDepIds` and `this.newDeps`
 - because the default value of `this.depIds` is `[]`, the watcher calls `dep.addSub(this)`
@@ -656,6 +697,60 @@ And what `cleanupDeps` does? After reading the code, you can tell how it works t
 Above is the initialization of dynamic data net, this can help you understand the process.
 
 If reactive property changes, it just triggers this process again to refresh computed property value and rebuild the dynamic data net.
+
+## Observer, Dep, Watcher 三者关系
+
+ #important 
+
+Observer 对应着整个 reactive system。通常是一个【响应式对象】，which holds some 响应式属性。
+
+Dep 对应响应式对象的各个【响应式属性】。
+
+Watcher 对应订阅了这些响应式属性的【订阅者】。Watcher 不只负责发现属性更新，还负责发现更新后，调用订阅者的更新函数。
+
+订阅者有哪些类型？
+
+- `computed` property
+- `watch` property
+- render watcher（视图更新，即更新 DOM）
+
+用一个例子说明：
+
+```js
+const vm = new Vue({
+  data: {
+    showText: true,
+    text: "Hello World!",
+  },
+  computed: {
+    displayText() {
+      return this.showText ? this.text : "";
+    },
+  },
+});
+
+vm.showText = false;
+```
+
+Vue 在初始化时，会为 `data` 创建一个 `Observer` 实例对象。初始化这个 `Observer` 实例对象时，同时又分别为 `showText` 和 `text` 两个属性创建各自的 `Dep` 实例对象（一个响应式属性对应一个）。
+
+然后，初始化到 `computed` 时，会为 `displayText()` 创建一个 `Watcher` 实例对象（this is when things getting tricky）。
+
+创建 `Watcher` 对象，将会调用 `this.get()`。`this.get()` 内部调用 `pushTarget(this)`，将当前 `Watcher` 对象加到 `Dep.target` 调用栈中。
+
+当前 `Watcher` 对象成为 `Dep.target` 时，就调用 `this.getter.call(vm, vm)`（就上述例子来说，`this.getter` 就是 `displayText()`）。`displayText()` 将会 `return this.showText? this.text : "";`。
+
+重点来了！
+
+无论 `this.showText` 为 true 还是 false，`this.showText` 都会被调用，`showText` 属性的 `getter` 函数必然会被调用（[[#defineReactive()]]），`getter` 函数除了返回属性当前值外，另一个重要功能是把 `Dep.target` 加入到当前属性（which in this case, `showText`）的 `Dep` 实例对象的 `this.subs` 订阅列表中，同时，把当前属性的 `Dep` 实例对象加入到 `Dep.target` 的 `this.depIds` 中。
+
+而对于 `this.text`，当且仅当 `this.showText` 为 true 时，它才会被调用！也就是说，它与 `displayText()` 是否有订阅关系，是动态变化的（由 `this.showText` 的值决定）。也就是说，`displayText()` 的 `Watcher` 实例，订阅的 `Dep` 实例对象，是动态变化的！也就是说，`Watcher` 绑定的依赖关系是动态变化的！对于 `displayText()` 的 `Watcher` 来说，当 `this.showText = true`，则同时订阅 `this.showText` 和 `this.text`；当 `this.showText = false`，就只需要订阅 `this.showText`。
+
+为什么要这样？因为当 `this.showText` 为 `false` 时，若 `this.text` 属性值变化，就不需要更新 `displayText()`。
+
+⬆️ ==这就是为什么每一次 `Watcher` 的 `get` 或 `update` 函数被调用，都需要重新收集其依赖关系。==
+
+虽然存在一定程度的浪费，但这是 Vue 为了维护一个可行的响应式系统所做的必要牺牲。
 
 ## Next Step
 
