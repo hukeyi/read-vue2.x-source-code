@@ -111,6 +111,8 @@ let childOb = observe(val)
   dep.notify()
 ```
 
+`getter` 收集依赖关系（`dep.depend()`）；`setter` 通知各个 Watcher 更新（`dep.notify()`）。
+
 Here we meet `Dep`, `observe()`, `dependArray()`, `depend()` and `notify()`.
 
 It's clear that `observe()` and `dependArray()` are helpers, let's read them first.
@@ -595,8 +597,12 @@ The `constructor` simply initials some variables, set your computed function or 
 ```js
 export default class Watcher{
 	constructor(vm, expOrFn, cb, options){
-		/* 一些变量初始化*/
-		this.getter = expOrFn
+		...
+		/* 一些变量初始化 */
+		this.getter = expOrFn // JS 表达式 or 函数
+		...
+		/* 调用 get() 获得当前值 */
+		this.value = this.lazy? undefined: this.get()
 	}
 }
 ```
@@ -630,7 +636,10 @@ get () {
   pushTarget(this) // 把当前 watcher push 入 Dep.target 栈；
   let value
   const vm = this.vm // 当前 vue 实例
-  if (this.user) { // ? #fixme whats this
+  if (this.user) { // whats this: 代表当前 watcher 是否为用户创建的 watcher
+  // watcher 有三种：1) render watcher; 2) computed watcher; 3) watch watcher
+  // 第一种是 vue 给的更新视图的 watcher；后两种都是用户创建的 watcher
+  // 第一种 this.user = false, 后两种 this.user = true
     try {
       value = this.getter.call(vm, vm) // 获取订阅对象更新后的新值
     } catch (e) {
@@ -734,7 +743,7 @@ vm.showText = false;
 
 Vue 在初始化时，会为 `data` 创建一个 `Observer` 实例对象。初始化这个 `Observer` 实例对象时，同时又分别为 `showText` 和 `text` 两个属性创建各自的 `Dep` 实例对象（一个响应式属性对应一个）。
 
-然后，初始化到 `computed` 时，会为 `displayText()` 创建一个 `Watcher` 实例对象（this is when things getting tricky）。
+然后，初始化到 `computed` 时，会为 `displayText()` 创建一个 `Watcher` 实例对象（this is when things get tricky）。
 
 创建 `Watcher` 对象，将会调用 `this.get()`。`this.get()` 内部调用 `pushTarget(this)`，将当前 `Watcher` 对象加到 `Dep.target` 调用栈中。
 
@@ -750,7 +759,7 @@ Vue 在初始化时，会为 `data` 创建一个 `Observer` 实例对象。初�
 
 ⬆️ ==这就是为什么每一次 `Watcher` 的 `get` 或 `update` 函数被调用，都需要重新收集其依赖关系。==
 
-虽然存在一定程度的浪费，但这是 Vue 为了维护一个可行的响应式系统所做的必要牺牲。
+虽然存在一定程度的浪费（每次 `this.get` 都要收集依赖，依赖并不是每次都变化），但这是为了维护一个可行的响应式系统所需的必要牺牲。
 
 ## Next Step
 
