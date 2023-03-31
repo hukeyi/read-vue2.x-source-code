@@ -15,7 +15,9 @@ After understanding the initialization and data updating, now we turn to the vie
 
 First of all, we need to find functions related to render process.
 
-In [previous article](https://github.com/numbbbbb/read-vue-source-code/blob/master/05-dynamic-data-lazy-sync-and-queue.md), we have learned that `mountComponent()` will use `_update()` and `_render()` to update views. Let's do a global search to find `_update`.
+In [[05-dynamic-data-lazy-sync-and-queue]] , we have learned that `mountComponent()` will use `_update()` and `_render()` to update views. Let's do a global search to find `_update`.
+
+> `./src/core/instance/lifecycle.js`
 
 ```javascript
 Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
@@ -173,6 +175,8 @@ Let's make it clear:
 - next, call `createCompiler()` with options, it will return the real compiler
 - finally, use that compiler to compile the input template
 
+> 这属于抽象工厂设计模式吗？还是策略模式？ #fixme 
+
 The purpose of this complicated process is extracting the core compiler and options. If you treat **core compiler function** and **options** as two parameters for `createCompiler()`, you can see it's similar with currying. Two parameters come at different time, so in `createCompilerCreator()` it has to create a new function to store **core compiler function** and return that function(this function is `createCompiler()`). When **options** is passed in, `createCompiler()` combines them and create the final compiler.
 
 Now we have found all functions related to render process: `_update()`, `__patch__()`, `_render()`, `createCompiler()`, `parse()`, `optimize()`, `generate()`. Let's organize them.
@@ -181,7 +185,7 @@ Now we have found all functions related to render process: `_update()`, `__patch
 
 Render process starts when `mountComponent()` is called. It will call `_render()` to compile template into `render` and `staticRenderFns`, then pass them to `_update()` to calculate the operations and apply them to DOMs.
 
-![](http://i.imgur.com/NM77eiy.jpg)
+![Structure of Render](http://i.imgur.com/NM77eiy.jpg)
 
 ## Next Step
 
@@ -189,7 +193,7 @@ Next two articles will talk about **compiler** and **patch**, you will see how V
 
 Read next chapter: [View Rendering - Compiler](https://github.com/numbbbbb/read-vue-source-code/blob/master/07-view-render-compiler.md).
 
-## Practice
+## Practice ✅
 
 ```javascript
 vnode = render.call(vm._renderProxy, vm.$createElement)
@@ -197,6 +201,115 @@ vnode = render.call(vm._renderProxy, vm.$createElement)
 
 This line is located in `_render()`, try to figure out what is `vm._renderProxy` and it's role.
 
+`vm._renderProxy` 定义在 `./src/core/instance/proxy.js` 中。
 
+```js
+/* not type checking this file because flow doesn't play well with Proxy */
 
+import config from 'core/config'
+import { warn, makeMap } from '../util/index'
 
+let initProxy
+
+if (process.env.NODE_ENV !== 'production') {
+  // 一些允许全局调用的全局对象，基本是些浏览器或 Node 内置的对象
+  const allowedGlobals = makeMap(
+    'Infinity,undefined,NaN,isFinite,isNaN,' +
+    'parseFloat,parseInt,decodeURI,decodeURIComponent,encodeURI,encodeURIComponent,' +
+    'Math,Number,Date,Array,Object,Boolean,String,RegExp,Map,Set,JSON,Intl,' +
+    'require' // for Webpack/Browserify
+  )
+
+  const warnNonPresent = (target, key) => {
+    warn(
+      `Property or method "${key}" is not defined on the instance but ` +
+      `referenced during render. Make sure to declare reactive data ` +
+      `properties in the data option.`,
+      target
+    )
+  }
+
+  const hasProxy =
+    typeof Proxy !== 'undefined' &&
+    Proxy.toString().match(/native code/)
+
+  if (hasProxy) {
+    const isBuiltInModifier = makeMap('stop,prevent,self,ctrl,shift,alt,meta')
+    config.keyCodes = new Proxy(config.keyCodes, {
+      set (target, key, value) {
+        if (isBuiltInModifier(key)) {
+          warn(`Avoid overwriting built-in modifier in config.keyCodes: .${key}`)
+          return false
+        } else {
+          target[key] = value
+          return true
+        }
+      }
+    })
+  }
+
+  const hasHandler = {
+    has (target, key) {
+      // has，target 对象中是否含有 key 属性
+      const has = key in target
+      // isAllowed 检查 key 是否允许直接调用
+      // 允许直接调用的前提：1）浏览器或 node 的内置对象；2）vue 实例的全局属性，以 `_` 开头的
+      const isAllowed = allowedGlobals(key) || key.charAt(0) === '_'
+      if (!has && !isAllowed) { // 假设 key 既不在对象 target 中，又不是全局属性，则警告
+        warnNonPresent(target, key)
+      }
+      // 1）target 中存在 key 属性 或者 2）key 属性不是全局属性
+      // 就返回 true
+      return has || !isAllowed
+      // target 不存在 key 且 key 是全局属性，则会返回 false
+    }
+  }
+
+  const getHandler = {
+    get (target, key) {
+      if (typeof key === 'string' && !(key in target)) {
+      // target 中不存在 key 属性，则警告
+        warnNonPresent(target, key)
+      }
+      // 否则，返回 key 的属性值
+      return target[key]
+    }
+  }
+
+  initProxy = function initProxy (vm) {
+    if (hasProxy) {
+      // determine which proxy handler to use
+      const options = vm.$options
+      const handlers = options.render && options.render._withStripped
+        ? getHandler
+        : hasHandler
+      vm._renderProxy = new Proxy(vm, handlers)
+    } else {
+      vm._renderProxy = vm
+    }
+  }
+}
+
+export { initProxy }
+```
+
+上述文件导出的 `initProxy` 将在 `initMixin` 中被调用（也就是说，它在 vue 的初始化过程中）：
+
+> `./src/core/instance/init.js`
+
+```js
+/* istanbul ignore else */
+if (process.env.NODE_ENV !== 'production') {
+  initProxy(vm)
+} else {
+  vm._renderProxy = vm
+}
+```
+
+回答 Practice 的问题“what is `vm._renderProxy` and it's role”：
+
+`vm._renderProxy` 是 `vm` 实例的拦截器，在 `get` 获取 `vm` 的属性之前，增加安全检查，检查查询的属性是否存在（`has`），或者是否允许直接调用（`isAllowed`）。
+
+它的角色就是，调用对象前的安全检查员。在对象属性被调用前，它检查两个问题：1）被调用对象的目标属性 key 是否存在？2）目标属性 key 是否可以被调用？
+
+两个问题都要返回 true，才会返回属性值。
